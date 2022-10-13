@@ -5,13 +5,17 @@ const path = require('path');
 const appRoot = require('app-root-path');
 const moment = require("moment");
 const { findBoard } = require('../middleware/findBoard');
+const { countLike } = require('../middleware/countLike');
+const { checkDislike } = require('../middleware/checkDislike');
+const { checkLike } = require('../middleware/checkLike');
+const { countDisLike } = require('../middleware/countDisLike');
 
 
 
 router.post('/get-read-board', (req, res) => {
     let id = parseInt(req.body.id)
 
-    let sql = `SELECT BOARD_TITLE, BOARD_CONT, UID, REGDATE, MENU_CD FROM TB_BOARD WHERE BOARD_CD = ${id}; `
+    let sql = `SELECT BOARD_TITLE, BOARD_CONT, UID, REGDATE, MENU_CD FROM TB_BOARD WHERE BOARD_CD = ${id} AND DEL_YN=0 ; `
 
     db.query(sql, (err, result) => {
         if(err) return res.status(400).json({success: false, err: err})
@@ -133,8 +137,8 @@ router.post('/update-board', async(req, res) => {
         vdoFileArr.push(exVdoFileArr)
     }
 
-    photoArr = bePhoto
-    videoArr = beVideo
+    photoArr = bePhoto ? bePhoto : []
+    videoArr = beVideo ? beVideo : []
 
     if (imgFileArr.length > 0) {
         imgFileArr.forEach((itm, idx) => {
@@ -183,13 +187,11 @@ router.post('/update-board', async(req, res) => {
     let sql = `UPDATE TB_BOARD SET BOARD_TITLE='${title}', BOARD_CONT='${jsonCont}', EDTDATE=NOW() WHERE BOARD_CD = ${boardId};`
 
     db.query(sql, (err, result) => {
-        if(err) throw err
+        if(err) return res.status(400).json({success: false, err: err})
 
         res.status(200).json({success: true, text: '게시완료'})
 
     }) 
-
-    // res.status(200).json({success: true, text: '게시완료'})
 
 })
 
@@ -331,7 +333,7 @@ router.post('/write-board', async(req, res) => {
                 VALUES( ${id}, '${title}', '${jsonCont}', ${uid}, 0, 0, 0, NOW()); `
 
     db.query(sql, (err, result) => {
-        if(err) throw err
+        if(err) return res.status(400).json({success: false, err: err})
 
         res.status(200).json({success: true, text: '게시완료'})
 
@@ -354,7 +356,6 @@ router.post('/get-board-list', (req, res) => {
         })
 
     }) 
-
 
 })
 
@@ -389,7 +390,7 @@ router.post('/write-comment', (req, res) => {
     VALUES('${boardCd}', '${boardCont}', ${uid}, ${prntComtCd}, 0, NOW()); `
 
     db.query(sql, (err, result) => {
-        if(err) throw err
+        if(err) return res.status(400).json({success: false, err: err})
 
         res.status(200).json({text: '게시 완료'})
 
@@ -399,70 +400,53 @@ router.post('/write-comment', (req, res) => {
 })
 
 
+router.post('/get-comments', (req, res) => {
+    let id = parseInt(req.body.id)
 
-
-
-
-router.post('/toggle-like', (req, res) => {
-    let boardCd = req.body.boardCd
-    let uid = req.body.uid
-
-    let sql = `SELECT * FROM TB_BOARD_LIKE WHERE BOARD_CD = ${boardCd} AND UID = ${uid} ; `
+    
+    let sql = `SELECT COMT_CD, PRNT_COMT_CD, UID, BOARD_CONT, REGDATE FROM TB_COMMENT WHERE BOARD_CD = ${id} AND DEL_YN=0 ; `
 
     db.query(sql, (err, result) => {
-        if(err) throw err
+        if(err) return res.status(400).json({success: false, err: err})
 
-        if (result.length === 0) {
-
-            let sqlI = `INSERT INTO TB_BOARD_LIKE (BOARD_CD, UID, REGDATE) 
-            VALUES(${boardCd}, ${uid}, NOW()); `
-        
-            db.query(sqlI, (err, result) => {
-                if(err) throw err
-        
-                res.status(200).json({text: '좋아요++'})
-        
-            }) 
-
-            
-
-        } else {
-
-            let sqlD = `DELETE FROM TB_BOARD_LIKE WHERE BOARD_CD = ${boardCd} AND UID = ${uid}; `
-            db.query(sqlD, (err, result) => {
-                if(err) throw err
-        
-                res.status(200).json({text: '좋아요--'})
-        
-            }) 
-
-            
-
-        }
-        
+        res.status(200).json({
+            text: '게시 완료',
+            lists: result
+        })
 
     }) 
 
+
 })
 
-router.post('/toggle-dislike', (req, res) => {
-    let boardCd = req.body.boardCd
+
+
+
+
+
+
+
+
+
+
+
+router.post('/toggle-like', checkDislike, (req, res) => {
+    let id = req.body.id
     let uid = req.body.uid
 
-    let sql = `SELECT * FROM TB_BOARD_DISLIKE WHERE BOARD_CD = ${boardCd} AND UID = ${uid} ; `
+    let sql = `SELECT * FROM TB_BOARD_LIKE WHERE BOARD_CD = ${id} AND UID = ${uid} ; `
 
     db.query(sql, (err, result) => {
-        if(err) throw err
+        if(err) return res.status(400).json({success: false, err: err})
 
         if (result.length === 0) {
 
-            let sqlI = `INSERT INTO TB_BOARD_DISLIKE (BOARD_CD, UID, REGDATE) 
-            VALUES(${boardCd}, ${uid}, NOW()); `
+            let sqlI = `INSERT INTO TB_BOARD_LIKE (BOARD_CD, UID, REGDATE) VALUES(${id}, ${uid}, NOW()); `
         
             db.query(sqlI, (err, result) => {
-                if(err) throw err
-        
-                res.status(200).json({text: '싫어요++'})
+                if(err) return res.status(400).json({success: false, err: err})
+
+                res.status(200).json({success: true})
         
             }) 
 
@@ -470,11 +454,11 @@ router.post('/toggle-dislike', (req, res) => {
 
         } else {
 
-            let sqlD = `DELETE FROM TB_BOARD_DISLIKE WHERE BOARD_CD = ${boardCd} AND UID = ${uid}; `
+            let sqlD = `DELETE FROM TB_BOARD_LIKE WHERE BOARD_CD = ${id} AND UID = ${uid}; `
             db.query(sqlD, (err, result) => {
-                if(err) throw err
+                if(err) return res.status(400).json({success: false, err: err})
         
-                res.status(200).json({text: '싫어요--'})
+                res.status(200).json({success: true})
         
             }) 
 
@@ -488,5 +472,106 @@ router.post('/toggle-dislike', (req, res) => {
 })
 
 
+router.post('/get-likes', countLike ,(req, res) => {
+    let id = req.body.id
+    let uid = req.body.uid
+
+    let sql = `SELECT LIKE_CD FROM TB_BOARD_LIKE WHERE BOARD_CD = ${id} AND UID = ${uid}; `
+
+    db.query(sql, (err, result) => {
+        if(err) return res.status(400).json({success: false, err: err})
+        
+        res.status(200).json({
+            success: true,
+            count: req.count,
+            include: result[0] ? true : false
+        })
+    }) 
+
+
+})
+
+router.post('/get-likes-noinfo', countLike ,(req, res) => {
+
+    res.status(200).json({
+        success: true,
+        count: req.count,
+        include: false
+    })
+
+})
+
+
+
+router.post('/toggle-dislike', checkLike, (req, res) => {
+    let id = req.body.id
+    let uid = req.body.uid
+
+    let sql = `SELECT * FROM TB_BOARD_DISLIKE WHERE BOARD_CD = ${id} AND UID = ${uid} ; `
+
+    db.query(sql, (err, result) => {
+        if(err) return res.status(400).json({success: false, err: err})
+
+        if (result.length === 0) {
+
+            let sqlI = `INSERT INTO TB_BOARD_DISLIKE (BOARD_CD, UID, REGDATE) VALUES(${id}, ${uid}, NOW()); `
+        
+            db.query(sqlI, (err, result) => {
+                if(err) return res.status(400).json({success: false, err: err})
+        
+                res.status(200).json({success: true})
+        
+            }) 
+
+            
+
+        } else {
+
+            let sqlD = `DELETE FROM TB_BOARD_DISLIKE WHERE BOARD_CD = ${id} AND UID = ${uid}; `
+            db.query(sqlD, (err, result) => {
+                if(err) return res.status(400).json({success: false, err: err})
+        
+                res.status(200).json({success: true})
+        
+            }) 
+
+            
+
+        }
+        
+
+    }) 
+
+})
+
+router.post('/get-dislikes', countDisLike, (req, res) => {
+    let id = req.body.id
+    let uid = req.body.uid
+    
+
+    let sql = `SELECT DISLIKE_CD FROM TB_BOARD_DISLIKE WHERE BOARD_CD = ${id} AND UID = ${uid}; `
+
+    db.query(sql, (err, result) => {
+        if(err) return res.status(400).json({success: false, err: err})
+        
+        res.status(200).json({
+            success: true,
+            count: req.count,
+            include: result[0] ? true : false
+        })
+    }) 
+
+
+})
+
+router.post('/get-dislikes-noinfo', countDisLike ,(req, res) => {
+
+    res.status(200).json({
+        success: true,
+        count: req.count,
+        include: false
+    })
+
+})
 
 module.exports = router;
