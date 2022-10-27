@@ -11,6 +11,26 @@ const { checkLike } = require('../middleware/checkLike');
 const { countDisLike } = require('../middleware/countDisLike');
 
 
+router.post('/post-image', (req, res) => {
+    let image = req.files.image
+    let now = moment();
+    let newName = now.format("YYMMDDHHmmss")+Math.random().toString().substr(2,4) + '.' + image.name.split('.')[1]
+    let path1 = appRoot + `/uploads/test/` + newName;
+
+    image.mv(
+        path1,
+        (err) => {
+          if (err) {
+            return res.status(500).send(err);
+          }
+          return res.status(200).send({success: true, text: `http://localhost:4000/uploads/test/${newName}`});
+        }
+    )
+
+
+
+})
+
 
 router.post('/get-read-board', (req, res) => {
     let id = parseInt(req.body.id)
