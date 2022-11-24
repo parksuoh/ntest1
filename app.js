@@ -7,6 +7,14 @@ const path = require("path");
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser')
 
+const http = require("http").createServer(app);
+const io = require('socket.io')(http, {
+    cors: {
+      origin: "http://localhost:3000",
+      methods: ["GET", "POST"],
+    }
+  });
+
 const db = require('./config/db');
 
 const PORT = 4000
@@ -25,4 +33,16 @@ app.use('/api/board', require('./router/board'));
 
 
 
-app.listen(PORT, () => console.log(`연결됨 ${PORT}`))
+http.listen(PORT, () => console.log(`연결됨 ${PORT}`))
+
+
+io.on('connection', (socket) => {
+    console.log(socket.id, 'Connected');
+    console.log('소캣 연결됨')
+    
+    socket.on('message', (data) => {
+      console.log(data);
+      
+      socket.broadcast.emit('message', data);
+    });
+});
